@@ -3,34 +3,26 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Typography, Button, Container, Paper, CircularProgress, Alert,
-  Grid, TextField, Autocomplete, IconButton, Divider, useTheme, Card, CardContent, Tooltip, InputAdornment
+  Grid, TextField, Autocomplete, IconButton, Divider, Card,
+  CardContent, InputAdornment, FormControl, InputLabel, Select, MenuItem,
+  Switch, FormControlLabel, Chip, Collapse, Tooltip, Stack
 } from '@mui/material';
-import { motion } from 'framer-motion';
-import { Plus, Trash2, Save, ArrowLeft, Calendar, Hash } from 'lucide-react';
+import { 
+  Plus, Trash2, Save, ArrowLeft, Calendar, Hash, Send, Eye,
+  Info, Bell, RotateCcw, MessageCircle, CheckCircle2
+} from 'lucide-react';
 import { getData, postData, putData } from '../../utils/BackendRequestHelper';
 import { useUserStore } from '../../store/userStore';
 
 const today = new Date().toISOString().split('T')[0];
 
-const LineItemRow = ({ item, index, handleItemChange, removeItem, canRemove }) => {
-    return (
-        <motion.div layout initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
-            <Grid container spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
-                <Grid item xs={12} sm={6}><TextField label="Description" placeholder="Service or Product" fullWidth value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></Grid>
-                <Grid item xs={6} sm={2}><TextField label="Quantity" type="number" fullWidth value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} inputProps={{ min: 0 }} /></Grid>
-                <Grid item xs={6} sm={3}><TextField label="Unit Price" type="number" fullWidth value={item.unit_price} onChange={e => handleItemChange(index, 'unit_price', e.target.value)} inputProps={{ min: 0, step: "0.01" }} /></Grid>
-                <Grid item xs={12} sm={1} sx={{ textAlign: 'right' }}><Tooltip title="Remove Item"><span><IconButton onClick={() => removeItem(index)} color="error" disabled={!canRemove}><Trash2 size={20} /></IconButton></span></Tooltip></Grid>
-            </Grid>
-        </motion.div>
-    );
-};
-
 export const InvoiceFormPage = () => {
   const { invoiceId } = useParams();
-  const isEditing = !!invoiceId;
+  const isEditing = Boolean(invoiceId);
   const navigate = useNavigate();
-  const theme = useTheme();
+  const { setLoading: setAppLoading, loading: formLoading } = useUserStore();
   
+  // Core invoice state
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -39,126 +31,421 @@ export const InvoiceFormPage = () => {
   const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: '' }]);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('draft');
-
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { setLoading: setStoreLoading, loading: formLoading } = useUserStore();
+  const [loading, setLoading] = useState(true);
+
+  // Follow-up state
+  const [autoFollowupsEnabled, setAutoFollowupsEnabled] = useState(false);
+  const [viewReminderDays, setViewReminderDays] = useState('');
+  const [dueReminderDays, setDueReminderDays] = useState('');
+  const [repeatIntervalDays, setRepeatIntervalDays] = useState('');
+  const [messageTemplate, setMessageTemplate] = useState('');
+
+  const presetTemplates = [
+    "Hi {{client_name}}, just a friendly reminder about invoice #{{invoice_number}}. Thanks!",
+    "Hello! Invoice #{{invoice_number}} is now {{days_overdue}} days overdue. Please review when convenient.",
+    "Quick reminder: Invoice #{{invoice_number}} for ${{amount}} is pending payment."
+  ];
 
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       try {
         setLoading(true);
         const clientData = await getData('clients');
         setClients(clientData);
 
         if (isEditing) {
-          const invoiceData = await getData(`invoices/${invoiceId}`);
-          setInvoiceNumber(invoiceData.invoice_number);
-          setIssueDate(new Date(invoiceData.issue_date).toISOString().split('T')[0]);
-          setDueDate(new Date(invoiceData.due_date).toISOString().split('T')[0]);
-          setItems(invoiceData.items);
-          setNotes(invoiceData.notes || '');
-          setStatus(invoiceData.status);
-          const currentClient = clientData.find(c => c.client_id === invoiceData.client_id);
-          if (currentClient) setSelectedClient(currentClient);
+          const inv = await getData(`invoices/${invoiceId}`);
+          setInvoiceNumber(inv.invoice_number);
+          setIssueDate(inv.issue_date);
+          setDueDate(inv.due_date);
+          setItems(inv.items);
+          setNotes(inv.notes || '');
+          setStatus(inv.status);
+          setSelectedClient(clientData.find(c => c.client_id === inv.client_id) || null);
+
+          const rules = await getData(`invoices/${invoiceId}/rules`);
+          setAutoFollowupsEnabled(rules.auto_followups_enabled);
+          setViewReminderDays(rules.view_reminder_days || '');
+          setDueReminderDays(rules.due_reminder_days || '');
+          setRepeatIntervalDays(rules.repeat_interval_days || '');
+          setMessageTemplate(rules.followup_message_template || '');
         } else {
-          const numberData = await getData('invoices/next-number');
-          setInvoiceNumber(numberData.nextInvoiceNumber);
-          const date = new Date();
-          date.setDate(date.getDate() + 30);
-          setDueDate(date.toISOString().split('T')[0]);
+          const num = await getData('invoices/next-number');
+          setInvoiceNumber(num.nextInvoiceNumber);
+          const d = new Date(); 
+          d.setDate(d.getDate() + 30);
+          setDueDate(d.toISOString().split('T')[0]);
         }
       } catch (err) {
-        setError('Could not load required data. Please try again.');
         console.error(err);
+        setError('Failed to load form data.');
       } finally {
         setLoading(false);
       }
-    };
-    fetchData();
+    })();
   }, [invoiceId, isEditing]);
 
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index][field] = value;
-    setItems(newItems);
+  const calculateTotal = () =>
+    items.reduce((sum, i) => sum + (parseFloat(i.quantity) || 0) * (parseFloat(i.unit_price) || 0), 0).toFixed(2);
+
+  const handleItemChange = (idx, field, val) => {
+    const arr = [...items]; 
+    arr[idx][field] = val; 
+    setItems(arr);
   };
-
+  
   const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: '' }]);
-  const removeItem = (index) => items.length > 1 && setItems(items.filter((_, i) => i !== index));
-  const calculateTotal = () => items.reduce((total, item) => total + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0)), 0).toFixed(2);
+  const removeItem = idx => setItems(items.filter((_, i) => i !== idx));
 
-  const handleSubmit = async () => {
-    setError('');
-    if (!selectedClient || items.some(item => !item.description || !item.unit_price)) {
-      setError('Please select a client and ensure all line items have a description and price.');
+  const handleSubmit = async (action = 'save') => {
+    if (!selectedClient || items.some(i => !i.description || !i.unit_price)) {
+      setError('Client & all line-items must be filled out.');
       return;
     }
-    
-    setStoreLoading(true);
+    setError('');
+    setAppLoading(true);
+
+    const payload = {
+      client_id: selectedClient.client_id,
+      issue_date: issueDate,
+      due_date: dueDate,
+      items,
+      notes,
+      status: action === 'send' && status === 'draft' ? 'sent' : status,
+      auto_followups_enabled: autoFollowupsEnabled,
+      view_reminder_days: viewReminderDays || null,
+      due_reminder_days: dueReminderDays || null,
+      repeat_interval_days: repeatIntervalDays || null,
+      followup_message_template: messageTemplate || null
+    };
+
     try {
-      const payload = {
-        client_id: selectedClient.client_id,
-        issue_date: issueDate,
-        due_date: dueDate,
-        items: items.filter(item => item.description && item.unit_price),
-        notes: notes,
-        status: status, // Include status for editing
-      };
-      
       if (isEditing) {
         await putData(`invoices/${invoiceId}`, payload);
       } else {
         await postData('invoices', payload);
       }
       navigate('/invoices');
-
     } catch (err) {
-      setError(err.message || 'An error occurred while saving the invoice.');
+      console.error(err);
+      setError(err.message || 'Save failed.');
     } finally {
-      setStoreLoading(false);
+      setAppLoading(false);
     }
   };
 
+  const getStatusColor = () => {
+    if (!autoFollowupsEnabled) return 'default';
+    const hasSettings = viewReminderDays || dueReminderDays || repeatIntervalDays;
+    return hasSettings ? 'success' : 'warning';
+  };
+
+  const getStatusText = () => {
+    if (!autoFollowupsEnabled) return 'Disabled';
+    const hasSettings = viewReminderDays || dueReminderDays || repeatIntervalDays;
+    return hasSettings ? 'Active' : 'Needs Setup';
+  };
+
   if (loading) {
-    return <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}><CircularProgress /><Typography sx={{mt: 2}}>Loading Form...</Typography></Container>;
+    return (
+      <Container sx={{ py: 5, textAlign: 'center' }}>
+        <CircularProgress />
+        <Typography mt={2}>Loading…</Typography>
+      </Container>
+    );
   }
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <Button startIcon={<ArrowLeft />} onClick={() => navigate('/invoices')} sx={{ mb: 1 }}>Back to Invoices</Button>
-        <Typography variant="h4" fontWeight={700}>{isEditing ? `Edit Invoice #${invoiceNumber}` : 'Create New Invoice'}</Typography>
-      </motion.div>
-      
-      <Grid container spacing={4} sx={{ mt: 0.5 }}>
+      <Button startIcon={<ArrowLeft />} onClick={() => navigate('/invoices')} sx={{ mb: 2 }}>
+        Back to Invoices
+      </Button>
+      <Typography variant="h4" gutterBottom>
+        {isEditing ? `Edit Invoice #${invoiceNumber}` : 'Create Invoice'}
+      </Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Grid container spacing={4}>
+        {/* LEFT: Main Form */}
         <Grid item xs={12} md={8}>
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-            <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, borderRadius: theme.shape.borderRadiusLG }}>
-              <Box><Typography variant="h6" fontWeight={600} gutterBottom>Client Information</Typography><Autocomplete options={clients} getOptionLabel={(option) => option.name || ''} value={selectedClient} onChange={(e, v) => setSelectedClient(v)} isOptionEqualToValue={(o, v) => o.client_id === v.client_id} renderInput={(params) => <TextField {...params} label="Select a Client" required/>}/></Box>
-              <Divider sx={{ my: 4 }}><Typography variant="overline">Line Items</Typography></Divider>
-              <Box>{items.map((item, index) => (<LineItemRow key={index} item={item} index={index} handleItemChange={handleItemChange} removeItem={removeItem} canRemove={items.length > 1}/>))}<Button startIcon={<Plus size={16} />} onClick={addItem} sx={{ mt: 1 }}>Add Line Item</Button></Box>
-              <Divider sx={{ my: 4 }} />
-              <Box><Typography variant="h6" fontWeight={600} gutterBottom>Notes</Typography><TextField label="Optional notes for the client..." multiline rows={4} fullWidth value={notes} onChange={e => setNotes(e.target.value)} /></Box>
-            </Paper>
-          </motion.div>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            {/* Client */}
+            <Typography variant="h6" gutterBottom>Client</Typography>
+            <Autocomplete
+              options={clients}
+              getOptionLabel={o => o.name}
+              value={selectedClient}
+              onChange={(_, v) => setSelectedClient(v)}
+              renderInput={params => (
+                <TextField {...params} label="Select Client" required />
+              )}
+            />
+            <Divider sx={{ my: 3 }} />
+
+            {/* Line Items */}
+            <Typography variant="h6" gutterBottom>Line Items</Typography>
+            {items.map((it, i) => (
+              <Grid container spacing={2} alignItems="center" key={i} sx={{ mb: 2 }}>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Description"
+                    fullWidth
+                    value={it.description}
+                    onChange={e => handleItemChange(i, 'description', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={2}>
+                  <TextField
+                    label="Qty"
+                    type="number"
+                    fullWidth
+                    value={it.quantity}
+                    onChange={e => handleItemChange(i, 'quantity', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={3}>
+                  <TextField
+                    label="Price"
+                    type="number"
+                    fullWidth
+                    value={it.unit_price}
+                    onChange={e => handleItemChange(i, 'unit_price', e.target.value)}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={1}>
+                  <IconButton onClick={() => removeItem(i)} disabled={items.length < 2}>
+                    <Trash2 />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            ))}
+            <Button startIcon={<Plus />} onClick={addItem} sx={{ mb: 3 }}>Add Item</Button>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Notes */}
+            <Typography variant="h6" gutterBottom>Notes</Typography>
+            <TextField
+              label="Optional notes"
+              multiline
+              rows={4}
+              fullWidth
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </Paper>
+
+          {/* Follow-Up Rules Box */}
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Bell />
+                Smart Follow-ups
+              </Typography>
+              <Chip label={getStatusText()} color={getStatusColor()} size="small" variant="outlined" />
+            </Box>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={autoFollowupsEnabled}
+                  onChange={(e) => setAutoFollowupsEnabled(e.target.checked)}
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Enable automatic reminders
+                  <Tooltip title="Send automatic follow-ups based on your rules">
+                    <Info size={16} />
+                  </Tooltip>
+                </Box>
+              }
+            />
+
+            <Collapse in={autoFollowupsEnabled}>
+              <Box sx={{ mt: 3 }}>
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  Configure automatic reminders for this invoice. Leave fields empty to skip that type.
+                </Alert>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      size="small"
+                      label="Not viewed (days)"
+                      type="number"
+                      fullWidth
+                      value={viewReminderDays}
+                      onChange={(e) => setViewReminderDays(e.target.value)}
+                      placeholder="3"
+                      helperText="After sending"
+                      InputProps={{ inputProps: { min: 1, max: 30 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      size="small"
+                      label="Overdue (days)"
+                      type="number"
+                      fullWidth
+                      value={dueReminderDays}
+                      onChange={(e) => setDueReminderDays(e.target.value)}
+                      placeholder="7"
+                      helperText="After due date"
+                      InputProps={{ inputProps: { min: 1, max: 90 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      size="small"
+                      label="Repeat (days)"
+                      type="number"
+                      fullWidth
+                      value={repeatIntervalDays}
+                      onChange={(e) => setRepeatIntervalDays(e.target.value)}
+                      placeholder="14"
+                      helperText="Interval"
+                      InputProps={{ inputProps: { min: 1, max: 30 } }}
+                    />
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MessageCircle size={16} />
+                    Message Template
+                  </Typography>
+                  
+                  <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                    {presetTemplates.map((template, index) => (
+                      <Chip
+                        key={index}
+                        label={`Template ${index + 1}`}
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setMessageTemplate(template)}
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    ))}
+                  </Stack>
+
+                  <TextField
+                    size="small"
+                    multiline
+                    rows={2}
+                    fullWidth
+                    value={messageTemplate}
+                    onChange={(e) => setMessageTemplate(e.target.value)}
+                    placeholder="Hi {{client_name}}, reminder about invoice #{{invoice_number}}..."
+                    helperText="Use {{client_name}}, {{invoice_number}}, {{amount}}, {{days_overdue}}"
+                  />
+                </Box>
+
+                {(viewReminderDays || dueReminderDays || repeatIntervalDays) && (
+                  <Alert severity="success" icon={<CheckCircle2 />} sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Rules Active:</Typography>
+                    <Box sx={{ fontSize: '0.875rem', mt: 0.5 }}>
+                      {viewReminderDays && `• Not viewed: ${viewReminderDays} days`}
+                      {dueReminderDays && `• Overdue: ${dueReminderDays} days`}
+                      {repeatIntervalDays && `• Repeat: ${repeatIntervalDays} days`}
+                    </Box>
+                  </Alert>
+                )}
+              </Box>
+            </Collapse>
+          </Paper>
         </Grid>
+
+        {/* RIGHT: Details & Actions */}
         <Grid item xs={12} md={4}>
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-                <Card elevation={2} sx={{ borderRadius: theme.shape.borderRadiusLG, position: 'sticky', top: '88px' }}>
-                    <CardContent sx={{ p: 3 }}>
-                        <Typography variant="h6" fontWeight={600} gutterBottom>Invoice Details</Typography>
-                        <Grid container spacing={2}>
-                             <Grid item xs={12}><TextField label="Invoice Number" value={invoiceNumber} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start"><Hash size={16}/></InputAdornment> }}/></Grid>
-                             <Grid item xs={12}><TextField label="Issue Date" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} fullWidth required InputProps={{ startAdornment: <InputAdornment position="start"><Calendar size={16}/></InputAdornment> }}/></Grid>
-                             <Grid item xs={12}><TextField label="Due Date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} fullWidth required InputProps={{ startAdornment: <InputAdornment position="start"><Calendar size={16}/></InputAdornment> }}/></Grid>
-                        </Grid>
-                        <Divider sx={{ my: 3 }} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><Typography variant="h6">Total Amount:</Typography><Typography variant="h4" fontWeight={700} color="secondary.main">${calculateTotal()}</Typography></Box>
-                        <Box sx={{ mt: 3 }}>{error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}<Button fullWidth variant="contained" color="secondary" size="large" startIcon={<Save />} onClick={handleSubmit} disabled={formLoading} sx={{ py: 1.5 }}>{formLoading ? <CircularProgress size={24} color="inherit"/> : 'Save Invoice'}</Button></Box>
-                    </CardContent>
-                </Card>
-            </motion.div>
+          <Card sx={{ mb: 2, position: 'sticky', top: 88 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Details</Typography>
+              <TextField
+                label="Invoice #"
+                fullWidth
+                value={invoiceNumber}
+                disabled
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Hash /></InputAdornment>
+                }}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                label="Issue Date"
+                type="date"
+                fullWidth
+                value={issueDate}
+                onChange={e => setIssueDate(e.target.value)}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Calendar /></InputAdornment>
+                }}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                label="Due Date"
+                type="date"
+                fullWidth
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Calendar /></InputAdornment>
+                }}
+                sx={{ mb: 2 }}
+              />
+              {isEditing && (
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select value={status} onChange={e => setStatus(e.target.value)} label="Status">
+                    {['draft', 'sent', 'paid', 'void'].map(s => (
+                      <MenuItem key={s} value={s}>{s.toUpperCase()}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Total</Typography>
+              <Typography variant="h4" color="primary" gutterBottom>
+                ${calculateTotal()}
+              </Typography>
+              
+              <Stack spacing={1}>
+                {!isEditing && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Send />}
+                    onClick={() => handleSubmit('send')}
+                    disabled={formLoading}
+                    fullWidth
+                  >
+                    Save & Send
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  startIcon={<Save />}
+                  onClick={() => handleSubmit('save')}
+                  disabled={formLoading}
+                  fullWidth
+                >
+                  {isEditing ? 'Save Changes' : 'Save Draft'}
+                </Button>
+                {isEditing && (
+                  <Button
+                    startIcon={<Eye />}
+                    onClick={() => window.open(`/invoice/${invoiceId}`, '_blank')}
+                    fullWidth
+                  >
+                    View Public
+                  </Button>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
     </Container>

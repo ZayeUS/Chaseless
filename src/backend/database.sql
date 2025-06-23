@@ -123,3 +123,31 @@ CREATE TABLE invoice_items (
 );
 
 CREATE INDEX idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+
+ALTER TABLE invoices
+ADD COLUMN last_follow_up_at TIMESTAMPTZ DEFAULT NULL,
+ADD COLUMN follow_up_count INT DEFAULT 0;
+
+CREATE TABLE invoice_follow_ups (
+  follow_up_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  method VARCHAR(50) NOT NULL, -- 'email', 'sms', etc.
+  message TEXT,
+  sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_invoice_followup_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
+  CONSTRAINT fk_invoice_followup_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_invoice_follow_ups_invoice_id ON invoice_follow_ups(invoice_id);
+
+ALTER TABLE invoices
+ADD COLUMN viewed_at TIMESTAMPTZ DEFAULT NULL,
+ADD COLUMN view_count INT DEFAULT 0;
+
+ALTER TABLE invoices
+  ADD COLUMN auto_followups_enabled   BOOLEAN DEFAULT FALSE,
+  ADD COLUMN view_reminder_days       INT     DEFAULT NULL,
+  ADD COLUMN due_reminder_days        INT     DEFAULT NULL,
+  ADD COLUMN repeat_interval_days     INT     DEFAULT NULL,
+  ADD COLUMN followup_message_template TEXT   DEFAULT NULL;

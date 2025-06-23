@@ -4,7 +4,7 @@ import {
   CircularProgress, useTheme, Paper, InputAdornment, IconButton,
   Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
-import { MailOutline, LockOutlined, Visibility, VisibilityOff, LightMode, DarkMode, Key } from "@mui/icons-material";
+import { Key, Visibility, VisibilityOff, LightMode, DarkMode } from "@mui/icons-material";
 import { motion, AnimatePresence } from 'framer-motion';
 import { login, resetPassword } from "../../../firebase";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +32,7 @@ const ResetPasswordModal = ({ open, onClose }) => {
     
     const handleClose = () => {
         onClose();
+        // Delay resetting state until after the dialog closes to prevent content flicker
         setTimeout(() => { setEmail(''); setError(''); setSuccess(false); }, 300);
     };
 
@@ -72,7 +73,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (authHydrated && isLoggedIn) {
-      navigate(profile?.is_new_user ? "/profile-onboarding" : "/dashboard");
+      navigate(profile?.fully_onboarded ? "/dashboard" : "/profile-onboarding");
     }
   }, [isLoggedIn, profile, navigate, authHydrated]);
 
@@ -84,6 +85,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
+      // Navigation will be handled by the useEffect hook
     } catch (err) {
       const messages = {
         "auth/user-not-found": "No account found with this email. Please sign up.",
@@ -97,7 +99,8 @@ export function LoginPage() {
   };
 
   if (!authHydrated) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress /></Box>;
+    // The FullScreenLoader in App.jsx will handle this state
+    return null;
   }
 
   // Animation variants for Framer Motion
@@ -147,9 +150,9 @@ export function LoginPage() {
                                 animate={{ opacity: 1, y: 0, height: 'auto' }}
                                 exit={{ opacity: 0, y: -10, height: 0 }}
                                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                                sx={{ mb: 2, width: '100%' }}
+                                style={{ width: '100%' }}
                             >
-                                <Alert severity="error" onClose={() => setError("")}>{error}</Alert>
+                                <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -167,7 +170,7 @@ export function LoginPage() {
                         </motion.div>
                         <motion.div variants={itemVariants}>
                             <Box sx={{ textAlign: 'right', mt: 1 }}>
-                                <Link component="button" type="button" variant="body2" onClick={() => setResetModalOpen(true)}>Forgot password?</Link>
+                                <Link component="button" type="button" variant="body2" onClick={() => setResetModalOpen(true)} disabled={isSubmitting}>Forgot password?</Link>
                             </Box>
                         </motion.div>
                         <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -178,7 +181,7 @@ export function LoginPage() {
                         <motion.div variants={itemVariants}>
                             <Typography variant="body2" align="center" color="text.secondary">
                                 Don't have an account?{' '}
-                                <Link component="button" variant="body2" onClick={() => navigate("/signup")} fontWeight="bold">Sign Up</Link>
+                                <Link component="button" variant="body2" onClick={() => navigate("/signup")} fontWeight="bold" disabled={isSubmitting}>Sign Up</Link>
                             </Typography>
                         </motion.div>
                     </Box>

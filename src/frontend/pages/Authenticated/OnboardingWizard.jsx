@@ -1,20 +1,20 @@
+// File: src/frontend/pages/Authenticated/OnboardingWizard.jsx
 import React, { useState, useEffect } from "react";
 import {
   Box, Typography, TextField, Button, Alert, Paper, Container, Avatar, Grid,
   CircularProgress, IconButton, Tooltip, LinearProgress, Chip, Stack, useTheme
 } from "@mui/material";
 import {
-  CloudUpload, PersonOutline, AccountCircle, Logout, ArrowForward,
+  CloudUpload, Business, Logout, ArrowForward,
   CheckCircle, ArrowBack, LightMode, DarkMode, Celebration
-} from "@mui/icons-material";
-// NEW: Replaced Star with icons more relevant to invoicing
+} from "@mui/icons-material"; // Changed AccountCircle to Business
 import { FileText, Zap, Shield } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { postData, uploadFile } from "../../utils/BackendRequestHelper";
 import { useUserStore } from "../../store/userStore";
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Step 1: Profile Information (No changes needed for this step)
+// Step 1: Profile Information
 const ProfileStep = ({ onProfileComplete, loading }) => {
   const [form, setForm] = useState({ first_name: "", last_name: "" });
   const [errors, setErrors] = useState({});
@@ -24,26 +24,43 @@ const ProfileStep = ({ onProfileComplete, loading }) => {
   const handleAvatarChange = (e) => { const file = e.target.files[0]; if (file && file.type.startsWith("image/")) { setAvatarFile(file); setAvatarPreview(URL.createObjectURL(file)); } };
   const validate = () => { const errs = {}; if (!form.first_name.trim()) errs.first_name = "First name is required."; if (!form.last_name.trim()) errs.last_name = "Last name is required."; setErrors(errs); return Object.keys(errs).length === 0; };
   const handleNext = () => { if (validate()) { onProfileComplete(form, avatarFile); } };
+  
   return (
-    <Box><Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}><Avatar src={avatarPreview} sx={{ width: 100, height: 100, mb: 2 }}><AccountCircle sx={{ fontSize: '5rem' }} /></Avatar><Button component="label" variant="outlined" startIcon={<CloudUpload />}>{avatarPreview ? "Change Photo" : "Upload Photo (Optional)"}<input type="file" accept="image/*" onChange={handleAvatarChange} hidden /></Button></Box><Grid container spacing={2}><Grid item xs={12} sm={6}><TextField name="first_name" label="First Name" fullWidth value={form.first_name} onChange={handleChange} error={!!errors.first_name} helperText={errors.first_name} /></Grid><Grid item xs={12} sm={6}><TextField name="last_name" label="Last Name" fullWidth value={form.last_name} onChange={handleChange} error={!!errors.last_name} helperText={errors.last_name} /></Grid></Grid><Button onClick={handleNext} fullWidth variant="contained" size="large" disabled={loading} endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />} sx={{ mt: 4, py: 1.5 }}>{loading ? "Saving Profile..." : "Next: Secure Your Spot"}</Button></Box>
+    <Box>
+        {/* ** THE FIX: Changed language and icon to "Logo" ** */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+            <Avatar src={avatarPreview} sx={{ width: 100, height: 100, mb: 2, bgcolor: 'action.hover' }}>
+                <Business sx={{ fontSize: '5rem' }} />
+            </Avatar>
+            <Button component="label" variant="outlined" startIcon={<CloudUpload />}>
+                {avatarPreview ? "Change Logo" : "Upload Logo (Optional)"}
+                <input type="file" accept="image/*" onChange={handleAvatarChange} hidden />
+            </Button>
+        </Box>
+        {/* ** END OF FIX ** */}
+
+        <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}><TextField name="first_name" label="First Name" fullWidth value={form.first_name} onChange={handleChange} error={!!errors.first_name} helperText={errors.first_name} /></Grid>
+            <Grid item xs={12} sm={6}><TextField name="last_name" label="Last Name" fullWidth value={form.last_name} onChange={handleChange} error={!!errors.last_name} helperText={errors.last_name} /></Grid>
+        </Grid>
+        <Button onClick={handleNext} fullWidth variant="contained" size="large" disabled={loading} endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />} sx={{ mt: 4, py: 1.5 }}>
+            {loading ? "Saving Profile..." : "Next"}
+        </Button>
+    </Box>
   );
 };
 
-// ---
-// Step 2: REFACTORED Subscription Step for ChaseLess Beta
-// ---
+// Step 2: Subscription Step for ChaseLess Beta
 const SubscriptionStep = ({ onPlanSelected, backStep, loading, setLoading }) => {
   const theme = useTheme();
 
   const handleBetaAccess = async () => {
     setLoading(true);
     try {
-      // This backend call marks the user as having the 'free' plan.
       await postData('/stripe/select-free-tier', {});
-      onPlanSelected('free'); // This tells the parent component to move to the next step.
+      onPlanSelected('free');
     } catch (error) {
       console.error("Failed to select free tier:", error);
-      // Optionally, you can set an error state here to show in the UI.
       setLoading(false);
     }
   };
@@ -52,7 +69,7 @@ const SubscriptionStep = ({ onPlanSelected, backStep, loading, setLoading }) => 
     <Box>
       <Grid container justifyContent="center">
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: {xs: 3, md: 4}, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
+          <Paper sx={{ p: {xs: 3, md: 4}, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: theme.shape.borderRadiusLG, border: `1px solid ${theme.palette.divider}` }}>
             <Chip label="Exclusive Beta Access" color="secondary" size="small" sx={{ alignSelf: 'center', mb: 2 }} />
             <Typography variant="h4" fontWeight={700} textAlign="center">Welcome to ChaseLess</Typography>
             <Typography variant="h6" color="text.secondary" textAlign="center" sx={{ my: 2 }}>
@@ -84,7 +101,7 @@ const SubscriptionStep = ({ onPlanSelected, backStep, loading, setLoading }) => 
 };
 
 
-// Step 3: Welcome Screen (No changes needed)
+// Step 3: Welcome Screen
 const WelcomeStep = () => {
     const navigate = useNavigate();
     const { setProfile, setLoading, loading } = useUserStore();
@@ -100,6 +117,7 @@ export const OnboardingWizard = ({ initialStep = 1 }) => {
   const [apiError, setApiError] = useState("");
   const { setProfile, clearUser, loading, setLoading, isDarkMode, toggleTheme, userSubscriptionStatus } = useUserStore();
   const theme = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setStep(initialStep);
@@ -140,12 +158,16 @@ export const OnboardingWizard = ({ initialStep = 1 }) => {
 
   const handlePlanSelected = (plan) => {
       if (plan === 'free') {
+          useUserStore.setState({ userSubscriptionStatus: 'free_active' });
           setStep(3);
       }
   };
 
-  const handleLogout = async () => await clearUser();
-  // UPDATED: Step titles for ChaseLess
+  const handleLogout = async () => {
+      await clearUser();
+      navigate('/login');
+  }
+  
   const stepTitles = ["1. Tell Us About Yourself", "2. Join the Beta", "3. Welcome to ChaseLess!"];
   const canGoBack = step === 2 && initialStep === 1;
 
@@ -153,7 +175,7 @@ export const OnboardingWizard = ({ initialStep = 1 }) => {
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", py: 4, display: 'flex', alignItems: 'center' }}>
         <Container maxWidth="md">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                <Paper elevation={12} sx={{ p: { xs: 3, sm: 5 }, borderRadius: 2, position: 'relative' }}>
+                <Paper elevation={12} sx={{ p: { xs: 3, sm: 5 }, borderRadius: theme.shape.borderRadiusLG, position: 'relative' }}>
                     <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex' }}><Tooltip title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}><IconButton onClick={toggleTheme}>{isDarkMode ? <LightMode /> : <DarkMode />}</IconButton></Tooltip><Tooltip title="Logout"><IconButton onClick={handleLogout}><Logout /></IconButton></Tooltip></Box>
                     <Box sx={{ mb: 4, width: '100%' }}><Typography variant="h5" fontWeight="bold" align="center" sx={{ mb: 2 }}>{stepTitles[step - 1]}</Typography><LinearProgress variant="determinate" value={(step / 3) * 100} sx={{height: 8, borderRadius: 4}} /></Box>
                     {apiError && <Alert severity="error" sx={{ mb: 2 }}>{apiError}</Alert>}

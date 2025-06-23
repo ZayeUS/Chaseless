@@ -65,10 +65,12 @@ router.get('/account-status', authenticate, async (req, res) => {
         const accountId = result.rows[0].stripe_account_id;
         const account = await stripe.accounts.retrieve(accountId);
         
+        // ** THE FIX: Also return the accountId so the frontend can build the dashboard link **
         res.json({
             isConnected: true,
             detailsSubmitted: account.details_submitted,
             payoutsEnabled: account.payouts_enabled,
+            accountId: accountId 
         });
         
     } catch (error) {
@@ -78,62 +80,37 @@ router.get('/account-status', authenticate, async (req, res) => {
 });
 
 // 3. Create a checkout session for a specific invoice ON BEHALF of the user
-router.post('/create-invoice-checkout', async (req, res) => {
-    const { invoiceId } = req.body;
-    
-    const frontendUrl = process.env.FRONTEND_URL;
-    if (!frontendUrl || !frontendUrl.startsWith('http')) {
-        console.error('CRITICAL CONFIGURATION ERROR: The FRONTEND_URL environment variable is not set or is invalid.');
-        return res.status(500).send({ error: 'Server configuration error prevents creating payment session.' });
-    }
-    
-    if (!invoiceId) return res.status(400).send({ error: 'Invoice ID is required.' });
 
+router.post('/create-invoice-checkout', authenticate, async (req, res) => {
+    const { invoiceId, unit_amount, description } = req.body;
+    if (!invoiceId || !unit_amount) {
+      return res.status(400).json({ message: 'invoiceId and unit_amount are required.' });
+    }
+  
     try {
-        // --- THE FIX: Added 'draft' to the list of payable statuses for testing ---
-        const invoiceQuery = `
-            SELECT i.total_amount, i.invoice_number, i.user_id, sa.stripe_account_id
-            FROM invoices i
-            JOIN stripe_accounts sa ON i.user_id = sa.user_id
-            WHERE i.invoice_id = $1 AND (i.status = 'sent' OR i.status = 'overdue' OR i.status = 'draft') -- 'draft' is added for testing
-        `;
-        const result = await query(invoiceQuery, [invoiceId]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).send({ error: 'Invoice not found, is not in a payable state, or the seller has not connected a Stripe account.' });
-        }
-
-        const { total_amount, invoice_number, stripe_account_id } = result.rows[0];
-
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [{
-                price_data: {
-                    currency: 'usd',
-                    product_data: { name: `Payment for Invoice #${invoice_number}` },
-                    unit_amount: Math.round(parseFloat(total_amount) * 100),
-                },
-                quantity: 1,
-            }],
-            mode: 'payment',
-            success_url: `${frontendUrl}/invoice/${invoiceId}?payment_success=true`,
-            cancel_url: `${frontendUrl}/invoice/${invoiceId}`,
-            payment_intent_data: {
-                application_fee_amount: Math.round(parseFloat(total_amount) * 100 * 0.02), // Example: 2% application fee
-                transfer_data: {
-                    destination: stripe_account_id,
-                },
-            },
-        });
-        
-        await query('UPDATE invoices SET stripe_payment_intent_id = $1 WHERE invoice_id = $2', [session.payment_intent, invoiceId]);
-
-        res.json({ url: session.url });
-    } catch (error) {
-        console.error("Error creating invoice checkout session:", error);
-        res.status(500).send({ error: 'Failed to create payment session.' });
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',        // or dynamic currency
+            unit_amount,            // amount in cents, includes 3% fee
+            product_data: {
+              name: description || `Invoice #${invoiceId}`,
+            }
+          },
+          quantity: 1
+        }],
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL}/invoice/${invoiceId}?payment_success=true`,
+        cancel_url:  `${process.env.FRONTEND_URL}/invoice/${invoiceId}`
+      });
+  
+      res.json({ url: session.url });
+    } catch (err) {
+      console.error('Error creating Stripe session:', err);
+      res.status(500).json({ message: 'Could not create payment session.' });
     }
-});
+  });
 
 
 export default router;

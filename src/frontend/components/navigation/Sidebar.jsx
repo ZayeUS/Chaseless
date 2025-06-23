@@ -1,5 +1,5 @@
 // File: src/frontend/components/navigation/Sidebar.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Drawer,
   Box,
@@ -19,7 +19,7 @@ import {
   Home, 
   User, 
   Users,
-  FileText, // Import icon for Invoices
+  FileText,
   LogOut, 
   ChevronLeft, 
   ChevronRight, 
@@ -30,7 +30,7 @@ import { useUserStore } from "../../store/userStore";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "../../../firebase";
 
-// Sidebar Item Component - Memoized for performance
+// Sidebar Item Component
 const SidebarItem = React.memo(({ icon, label, path, isActive, onClick, isExpanded }) => {
   const theme = useTheme();
   return (
@@ -45,11 +45,15 @@ const SidebarItem = React.memo(({ icon, label, path, isActive, onClick, isExpand
           py: 1.25,
           minHeight: 48,
           justifyContent: isExpanded ? "initial" : "center",
-          color: isActive ? (theme.palette.mode === 'dark' ? '#FFFFFF' : theme.palette.primary.main) : theme.palette.text.secondary,
-          backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.15) : "transparent",
+          color: isActive
+            ? (theme.palette.mode === 'dark' ? '#FFF' : theme.palette.primary.main)
+            : theme.palette.text.secondary,
+          backgroundColor: isActive
+            ? alpha(theme.palette.primary.main, 0.15)
+            : "transparent",
           '&:hover': {
             backgroundColor: alpha(theme.palette.primary.main, 0.1),
-            color: theme.palette.mode === 'dark' ? '#FFFFFF' : theme.palette.primary.main,
+            color: theme.palette.mode === 'dark' ? '#FFF' : theme.palette.primary.main,
           },
           '& .MuiListItemIcon-root': {
             minWidth: 0,
@@ -57,21 +61,21 @@ const SidebarItem = React.memo(({ icon, label, path, isActive, onClick, isExpand
             color: 'inherit',
             marginRight: isExpanded ? 2 : 0,
           },
-          transition: theme.transitions.create(['width', 'padding', 'background-color', 'color'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          transition: theme.transitions.create(
+            ['width','padding','background-color','color'],
+            { easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.enteringScreen }
+          ),
         }}
       >
         <ListItemIcon>{icon}</ListItemIcon>
         {isExpanded && (
-          <ListItemText 
-            primary={label} 
-            primaryTypographyProps={{ 
-              fontWeight: isActive ? 600 : 500, 
+          <ListItemText
+            primary={label}
+            primaryTypographyProps={{
+              fontWeight: isActive ? 600 : 500,
               variant: 'body2',
               sx: { whiteSpace: 'nowrap', color: 'inherit' }
-            }} 
+            }}
           />
         )}
       </ListItemButton>
@@ -79,7 +83,7 @@ const SidebarItem = React.memo(({ icon, label, path, isActive, onClick, isExpand
   );
 });
 
-// Theme Toggle Component - Memoized for performance
+// Theme Toggle
 const ThemeToggle = React.memo(({ isExpanded, isDarkMode, toggleTheme }) => {
   const theme = useTheme();
   return (
@@ -94,15 +98,18 @@ const ThemeToggle = React.memo(({ isExpanded, isDarkMode, toggleTheme }) => {
       }}
     >
       {isExpanded && (
-        <Typography variant="caption" fontWeight={500} color="text.secondary">
+        <Typography variant="caption" color="text.secondary">
           Interface Mode
         </Typography>
       )}
-      <Tooltip title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"} placement="top">
+      <Tooltip
+        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        placement="top"
+      >
         <IconButton
           onClick={toggleTheme}
           size="small"
-          sx={{ 
+          sx={{
             border: `1px solid ${theme.palette.divider}`,
             borderRadius: theme.shape.borderRadius,
             color: theme.palette.text.secondary,
@@ -112,29 +119,22 @@ const ThemeToggle = React.memo(({ isExpanded, isDarkMode, toggleTheme }) => {
             }
           }}
         >
-          {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          {isDarkMode ? <Sun size={18}/> : <Moon size={18}/>}
         </IconButton>
       </Tooltip>
     </Box>
   );
 });
 
-// Main Sidebar Component
+// Main Sidebar
 export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
   const theme = useTheme();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { isLoggedIn, clearUser } = useUserStore(); 
-  
-  const [isExpanded, setIsExpanded] = useState(!isMobile);
+  const { isLoggedIn, clearUser } = useUserStore();
 
-  useEffect(() => {
-    if (!isMobile) {
-      setIsExpanded(true);
-    } else {
-      setIsExpanded(false);
-    }
-  }, [isMobile]);
+  // Default collapsed
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -143,7 +143,7 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
       navigate("/");
       if (isMobile && onClose) onClose();
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error("Logout error:", error);
     }
   };
 
@@ -151,30 +151,28 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
 
   const handleNavigation = (path) => {
     if (!isLoggedIn) {
-      navigate("/login"); 
+      navigate("/login");
       if (isMobile && onClose) onClose();
       return;
     }
-
     navigate(path);
     if (isMobile && onClose) onClose();
   };
 
   const menuItems = [
-    { label: "Dashboard", path: "/dashboard", icon: <Home size={20} strokeWidth={2} /> },
-    { label: "Invoices", path: "/invoices", icon: <FileText size={20} strokeWidth={2} /> },
-    { label: "Clients", path: "/clients", icon: <Users size={20} strokeWidth={2} /> },
-    { label: "Profile", path: "/user-profile", icon: <User size={20} strokeWidth={2} /> },
+    { label: "Dashboard", path: "/dashboard", icon: <Home size={20}/> },
+    { label: "Invoices", path: "/invoices", icon: <FileText size={20}/> },
+    { label: "Clients", path: "/clients", icon: <Users size={20}/> },
+    { label: "Profile", path: "/user-profile", icon: <User size={20}/> },
   ];
 
-  const drawerWidth = isExpanded ? 250 : 80;
+  const drawerWidth = isExpanded ? 240 : 64;
 
   return (
     <Drawer
       variant={isMobile ? "temporary" : "permanent"}
-      open={isMobile ? (isExpanded && onClose !== undefined) : true}
+      open={isMobile ? false : true}
       onClose={isMobile ? onClose : undefined}
-      ModalProps={{ keepMounted: true }}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
@@ -182,38 +180,36 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
           width: drawerWidth,
           boxSizing: 'border-box',
           borderRight: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.drawerPaper || theme.palette.background.paper,
+          backgroundColor: theme.palette.background.paper,
           overflowX: 'hidden',
-          transition: theme.transitions.create(['width', 'padding', 'background-color', 'color'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          transition: theme.transitions.create(
+            ['width','padding','background-color','color'],
+            { easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.enteringScreen }
+          ),
           boxShadow: theme.shadows[2],
         },
       }}
     >
-      <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Box
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: isExpanded ? "space-between" : "center",
-            px: isExpanded ? 2.5 : 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isExpanded ? 'space-between' : 'center',
+            px: isExpanded ? 2 : 0,
             height: 64,
             borderBottom: `1px solid ${theme.palette.divider}`,
           }}
         >
           {isExpanded && (
-            <Typography 
-              variant="h6" 
-              fontWeight="bold" 
-              color="primary" 
-              noWrap 
-              component="div"
+            <Typography
+              variant="h6"
+              fontWeight="bold"
+              color="primary"
               onClick={() => navigate('/')}
-              sx={{ cursor: 'pointer', ml: 0.5 }}
+              sx={{ cursor: 'pointer' }}
             >
-              ChaseLess
+              Chaseless
             </Typography>
           )}
           {!isMobile && (
@@ -223,20 +219,22 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
               sx={{
                 color: theme.palette.text.secondary,
                 '&:hover': { backgroundColor: theme.palette.action.hover },
-                mr: isExpanded ? 0.5 : 0,
+                mr: isExpanded ? 1 : 0,
               }}
             >
-              {isExpanded ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
+              {isExpanded ? <ChevronLeft/> : <ChevronRight/>}
             </IconButton>
           )}
         </Box>
 
-        <Box flexGrow={1} sx={{ overflowY: 'auto', overflowX: 'hidden', p: isExpanded ? 1.5 : 1 }}>
+        <Box flexGrow={1} sx={{ overflowY: 'auto', p: isExpanded ? 2 : 1 }}>
           <List disablePadding>
             {menuItems.map(item => (
               <SidebarItem
                 key={item.label}
-                {...item}
+                icon={item.icon}
+                label={item.label}
+                path={item.path}
                 isActive={pathname.startsWith(item.path)}
                 onClick={() => handleNavigation(item.path)}
                 isExpanded={isExpanded}
@@ -245,25 +243,23 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
           </List>
         </Box>
 
-        <Box sx={{ p: isExpanded ? 2 : 1, mt: 'auto' }}>
-          <ThemeToggle 
-            isExpanded={isExpanded} 
-            isDarkMode={isDarkMode} 
-            toggleTheme={toggleTheme} 
+        <Box sx={{ p: isExpanded ? 2 : 1 }}>
+          <ThemeToggle
+            isExpanded={isExpanded}
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
           />
-          <Divider sx={{ my: isExpanded ? 1.5 : 1 }} />
-          <Tooltip title={!isExpanded ? "Logout" : ""} placement="right" arrow>
+          <Divider sx={{ my: isExpanded ? 2 : 1 }}/>
+          <Tooltip title={!isExpanded ? "Logout" : ""} placement="right">
             <ListItemButton
               onClick={handleLogout}
               sx={{
                 borderRadius: theme.shape.borderRadius,
                 py: 1.25,
                 px: isExpanded ? 2.5 : 'auto',
-                justifyContent: isExpanded ? "initial" : "center",
+                justifyContent: isExpanded ? 'initial' : 'center',
                 color: theme.palette.error.main,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.error.main, 0.08),
-                },
+                '&:hover': { backgroundColor: alpha(theme.palette.error.main, 0.1) },
                 '& .MuiListItemIcon-root': {
                   minWidth: 0,
                   justifyContent: 'center',
@@ -272,11 +268,11 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
                 },
               }}
             >
-              <ListItemIcon><LogOut size={20} strokeWidth={2.5} /></ListItemIcon>
+              <ListItemIcon><LogOut size={20}/></ListItemIcon>
               {isExpanded && (
-                <ListItemText 
-                  primary="Logout" 
-                  primaryTypographyProps={{ fontWeight: 600, variant: 'body2', sx: { whiteSpace: 'nowrap' } }} 
+                <ListItemText
+                  primary="Logout"
+                  primaryTypographyProps={{ fontWeight: 600 }}
                 />
               )}
             </ListItemButton>
