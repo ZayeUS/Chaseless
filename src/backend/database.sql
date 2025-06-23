@@ -75,3 +75,51 @@ CREATE TABLE payments (
 CREATE INDEX idx_audit_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_target_user_id ON audit_logs(target_user_id);
 CREATE INDEX idx_audit_table_record ON audit_logs(table_name, record_id);
+
+CREATE TABLE clients (
+  client_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  address TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ DEFAULT NULL,
+  CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_clients_user_id ON clients(user_id);
+
+CREATE TABLE invoices (
+  invoice_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  client_id UUID NOT NULL,
+  invoice_number VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft', -- e.g., 'draft', 'sent', 'viewed', 'paid', 'overdue', 'void'
+  issue_date DATE NOT NULL,
+  due_date DATE NOT NULL,
+  total_amount NUMERIC(10, 2) NOT NULL,
+  notes TEXT,
+  stripe_payment_intent_id TEXT, -- To track payment status with Stripe
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_client FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE RESTRICT,
+  CONSTRAINT unique_invoice_number_per_user UNIQUE (user_id, invoice_number)
+);
+
+CREATE INDEX idx_invoices_user_id ON invoices(user_id);
+CREATE INDEX idx_invoices_client_id ON invoices(client_id);
+CREATE INDEX idx_invoices_status ON invoices(status);
+
+CREATE TABLE invoice_items (
+  item_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID NOT NULL,
+  description TEXT NOT NULL,
+  quantity NUMERIC(10, 2) NOT NULL DEFAULT 1,
+  unit_price NUMERIC(10, 2) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_invoice_items_invoice_id ON invoice_items(invoice_id);

@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from "react";
 import {
   Box, Typography, TextField, Button, Alert, Paper, Container, Avatar, Grid,
-  CircularProgress, IconButton, Tooltip, LinearProgress, Chip, Stack,useTheme
+  CircularProgress, IconButton, Tooltip, LinearProgress, Chip, Stack, useTheme
 } from "@mui/material";
 import {
   CloudUpload, PersonOutline, AccountCircle, Logout, ArrowForward,
   CheckCircle, ArrowBack, LightMode, DarkMode, Celebration
 } from "@mui/icons-material";
-import { Star } from 'lucide-react';
+// NEW: Replaced Star with icons more relevant to invoicing
+import { FileText, Zap, Shield } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { postData, uploadFile } from "../../utils/BackendRequestHelper";
 import { useUserStore } from "../../store/userStore";
 import { motion, AnimatePresence } from 'framer-motion';
 
-const STRIPE_PAYMENT_LINK = import.meta.env.VITE_STRIPE_PAYMENT_LINK;
-
-// Step 1: Profile Information (No changes)
+// Step 1: Profile Information (No changes needed for this step)
 const ProfileStep = ({ onProfileComplete, loading }) => {
   const [form, setForm] = useState({ first_name: "", last_name: "" });
   const [errors, setErrors] = useState({});
@@ -26,20 +25,66 @@ const ProfileStep = ({ onProfileComplete, loading }) => {
   const validate = () => { const errs = {}; if (!form.first_name.trim()) errs.first_name = "First name is required."; if (!form.last_name.trim()) errs.last_name = "Last name is required."; setErrors(errs); return Object.keys(errs).length === 0; };
   const handleNext = () => { if (validate()) { onProfileComplete(form, avatarFile); } };
   return (
-    <Box><Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}><Avatar src={avatarPreview} sx={{ width: 100, height: 100, mb: 2 }}><AccountCircle sx={{ fontSize: '5rem' }} /></Avatar><Button component="label" variant="outlined" startIcon={<CloudUpload />}>{avatarPreview ? "Change Photo" : "Upload Photo (Optional)"}<input type="file" accept="image/*" onChange={handleAvatarChange} hidden /></Button></Box><Grid container spacing={2}><Grid item xs={12} sm={6}><TextField name="first_name" label="First Name" fullWidth value={form.first_name} onChange={handleChange} error={!!errors.first_name} helperText={errors.first_name} /></Grid><Grid item xs={12} sm={6}><TextField name="last_name" label="Last Name" fullWidth value={form.last_name} onChange={handleChange} error={!!errors.last_name} helperText={errors.last_name} /></Grid></Grid><Button onClick={handleNext} fullWidth variant="contained" size="large" disabled={loading} endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />} sx={{ mt: 4, py: 1.5 }}>{loading ? "Saving Profile..." : "Next: Choose Plan"}</Button></Box>
+    <Box><Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}><Avatar src={avatarPreview} sx={{ width: 100, height: 100, mb: 2 }}><AccountCircle sx={{ fontSize: '5rem' }} /></Avatar><Button component="label" variant="outlined" startIcon={<CloudUpload />}>{avatarPreview ? "Change Photo" : "Upload Photo (Optional)"}<input type="file" accept="image/*" onChange={handleAvatarChange} hidden /></Button></Box><Grid container spacing={2}><Grid item xs={12} sm={6}><TextField name="first_name" label="First Name" fullWidth value={form.first_name} onChange={handleChange} error={!!errors.first_name} helperText={errors.first_name} /></Grid><Grid item xs={12} sm={6}><TextField name="last_name" label="Last Name" fullWidth value={form.last_name} onChange={handleChange} error={!!errors.last_name} helperText={errors.last_name} /></Grid></Grid><Button onClick={handleNext} fullWidth variant="contained" size="large" disabled={loading} endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />} sx={{ mt: 4, py: 1.5 }}>{loading ? "Saving Profile..." : "Next: Secure Your Spot"}</Button></Box>
   );
 };
 
-// Step 2: Subscription Plan Selection (No changes)
+// ---
+// Step 2: REFACTORED Subscription Step for ChaseLess Beta
+// ---
 const SubscriptionStep = ({ onPlanSelected, backStep, loading, setLoading }) => {
   const theme = useTheme();
-  const handleFreeTier = async () => { setLoading(true); try { await postData('/stripe/select-free-tier', {}); onPlanSelected('free'); } catch (error) { console.error("Failed to select free tier:", error); setLoading(false); } };
+
+  const handleBetaAccess = async () => {
+    setLoading(true);
+    try {
+      // This backend call marks the user as having the 'free' plan.
+      await postData('/stripe/select-free-tier', {});
+      onPlanSelected('free'); // This tells the parent component to move to the next step.
+    } catch (error) {
+      console.error("Failed to select free tier:", error);
+      // Optionally, you can set an error state here to show in the UI.
+      setLoading(false);
+    }
+  };
+
   return (
-    <Box><Grid container spacing={{xs: 2, md: 4}} justifyContent="center"><Grid item xs={12} md={6}><Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 2 }}><Chip label="For Starters" color="info" size="small" sx={{ alignSelf: 'flex-start', mb: 2 }} /><Typography variant="h5" fontWeight={700}>Free Tier</Typography><Typography variant="h4" fontWeight={800} color="primary.main" sx={{ my: 2 }}>$0</Typography><Stack spacing={1.5} sx={{ mb: 3, flexGrow: 1 }}>{["Basic Features", "Limited Projects", "Community Support"].map(f => <Box key={f} sx={{display: 'flex', alignItems: 'center'}}><CheckCircle color="success" sx={{mr:1.5}}/>{f}</Box>)}</Stack><Button onClick={handleFreeTier} variant="outlined" fullWidth size="large" disabled={loading}>{loading ? <CircularProgress size={24}/> : 'Get Started for Free'}</Button></Paper></Grid><Grid item xs={12} md={6}><Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', border: 2, borderColor: 'secondary.main', borderRadius: 2 }}><Chip label="Recommended" color="secondary" size="small" sx={{ alignSelf: 'flex-start', mb: 2 }} /><Typography variant="h5" fontWeight={700}>MVP Tier</Typography><Typography variant="h4" fontWeight={800} color="secondary.main" sx={{ my: 2 }}>$0.50<Typography component="span" variant="h6" color="text.secondary">/mo</Typography></Typography><Stack spacing={1.5} sx={{ mb: 3, flexGrow: 1 }}>{["All Free Features", "Unlimited Projects", "Priority Support"].map(f => <Box key={f} sx={{display: 'flex', alignItems: 'center', mb: 1}}><Star size={20} color={theme.palette.secondary.main} style={{ marginRight: 12 }}/>{f}</Box>)}</Stack><Button href={STRIPE_PAYMENT_LINK} variant="contained" color="secondary" fullWidth size="large" disabled={loading}>Go to Checkout</Button></Paper></Grid></Grid>{backStep && <Button onClick={backStep} startIcon={<ArrowBack />} sx={{ mt: 4 }} disabled={loading}>Back to Profile</Button>}</Box>
+    <Box>
+      <Grid container justifyContent="center">
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: {xs: 3, md: 4}, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
+            <Chip label="Exclusive Beta Access" color="secondary" size="small" sx={{ alignSelf: 'center', mb: 2 }} />
+            <Typography variant="h4" fontWeight={700} textAlign="center">Welcome to ChaseLess</Typography>
+            <Typography variant="h6" color="text.secondary" textAlign="center" sx={{ my: 2 }}>
+              You're invited to get free, early access to the tools that will automate your invoicing and get you paid faster.
+            </Typography>
+            
+            <Stack spacing={2} sx={{ my: 4, flexGrow: 1 }}>
+              {[
+                { icon: <FileText size={20} color={theme.palette.secondary.main}/>, text: "Create and send unlimited invoices." },
+                { icon: <Zap size={20} color={theme.palette.secondary.main}/>, text: "Automate invoice reminders and follow-ups." },
+                { icon: <Shield size={20} color={theme.palette.secondary.main}/>, text: "Secure payment processing via Stripe." }
+              ].map(item => (
+                <Box key={item.text} sx={{display: 'flex', alignItems: 'center'}}>
+                  <Box sx={{mr: 1.5, display: 'flex', alignItems: 'center'}}>{item.icon}</Box>
+                  <Typography variant="body1">{item.text}</Typography>
+                </Box>
+              ))}
+            </Stack>
+
+            <Button onClick={handleBetaAccess} variant="contained" color="secondary" fullWidth size="large" disabled={loading} endIcon={loading ? <CircularProgress size={24}/> : <ArrowForward />}>
+              Get Free Beta Access
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
+      {backStep && <Button onClick={backStep} startIcon={<ArrowBack />} sx={{ mt: 4 }} disabled={loading}>Back to Profile</Button>}
+    </Box>
   );
 };
 
-// Step 3: Welcome Screen (No changes)
+
+// Step 3: Welcome Screen (No changes needed)
 const WelcomeStep = () => {
     const navigate = useNavigate();
     const { setProfile, setLoading, loading } = useUserStore();
@@ -61,11 +106,9 @@ export const OnboardingWizard = ({ initialStep = 1 }) => {
   }, [initialStep]);
 
   useEffect(() => {
-    // --- THIS IS THE CORRECTED LOGIC ---
     const hasActiveSubscription = userSubscriptionStatus === 'active' || userSubscriptionStatus === 'trialing' || userSubscriptionStatus === 'free_active';
-
     if (step === 2 && hasActiveSubscription) {
-      setStep(3); // Skip to the Welcome step
+      setStep(3);
     }
   }, [step, userSubscriptionStatus]);
 
@@ -102,7 +145,8 @@ export const OnboardingWizard = ({ initialStep = 1 }) => {
   };
 
   const handleLogout = async () => await clearUser();
-  const stepTitles = ["1. Create Your Profile", "2. Choose Your Plan", "3. Welcome Aboard!"];
+  // UPDATED: Step titles for ChaseLess
+  const stepTitles = ["1. Tell Us About Yourself", "2. Join the Beta", "3. Welcome to ChaseLess!"];
   const canGoBack = step === 2 && initialStep === 1;
 
   return (

@@ -17,6 +17,10 @@ import { OnboardingWizard } from "./frontend/pages/Authenticated/OnboardingWizar
 import { UserProfilePage } from "./frontend/pages/Authenticated/UserProfilePage";
 import { PaymentSuccessPage } from "./frontend/pages/Authenticated/PaymentSuccessPage";
 import { ProtectedRoute } from "./frontend/components/ProtectedRoute";
+import { ClientsPage } from "./frontend/pages/Authenticated/ClientsPage";
+import { PublicInvoicePage } from "./frontend/pages/Public/PublicInvoicePage";
+import { InvoicesPage } from "./frontend/pages/Authenticated/InvoicesPage";
+import { InvoiceFormPage } from "./frontend/pages/Authenticated/InvoiceFormPage";
 
 const DRAWER_WIDTH = 60;
 
@@ -38,17 +42,15 @@ export const App = () => {
   const getRedirect = useCallback(() => {
     if (!isLoggedIn) return "/login";
     
-    // If the user's profile is missing or not marked as fully onboarded,
-    // they must go through the wizard.
     if (!profile || !profile.fully_onboarded) {
       return "/profile-onboarding";
     }
-
-    // Otherwise, they are fully set up. Send them to their dashboard.
-    return roleId === 1 ? "/admin-dashboard" : "/user-dashboard";
+    
+    // Admins go to their own dashboard, regular users go to the main one.
+    return roleId === 1 ? "/admin-dashboard" : "/dashboard";
   }, [isLoggedIn, profile, roleId]);
 
-  const showNavUI = isLoggedIn && location.pathname !== "/profile-onboarding";
+  const showNavUI = isLoggedIn && location.pathname !== "/profile-onboarding" && !location.pathname.startsWith('/invoice/');
   const isLoading = !authHydrated;
 
   return (
@@ -62,31 +64,37 @@ export const App = () => {
               {showNavUI && !isMobile && <Sidebar isDarkMode={isDarkMode} toggleTheme={toggleTheme} isMobile={isMobile} />}
               <Box component="main" sx={{ flexGrow: 1, bgcolor: "background.default", ml: showNavUI && !isMobile ? `${DRAWER_WIDTH}px` : 0, pb: showNavUI && isMobile ? 10 : 0 }}>
                 <Routes>
-                  <Route path="/" element={<Navigate to={getRedirect()} />} />
+                  {/* Public Routes */}
+                  <Route path="/invoice/:invoiceId" element={<PublicInvoicePage />} />
                   <Route path="/login" element={isLoggedIn ? <Navigate to={getRedirect()} /> : <LoginPage />} />
                   <Route path="/signup" element={isLoggedIn ? <Navigate to={getRedirect()} /> : <SignUpPage />} />
-                  
-                  {/* --- THE FINAL, ROBUST ONBOARDING ROUTE --- */}
+
+                  {/* Authenticated Routes */}
+                  <Route path="/" element={<Navigate to={getRedirect()} />} />
                   <Route
                     path="/profile-onboarding"
                     element={
                       <ProtectedRoute>
-                        {/* If the user is already fully onboarded, redirect them away from the wizard to the dashboard. */}
                         {profile && profile.fully_onboarded ? (
                           <Navigate to="/dashboard" replace />
                         ) : (
-                          // Otherwise, show the wizard and tell it which step to start on.
                           <OnboardingWizard initialStep={profile ? 2 : 1} />
                         )}
                       </ProtectedRoute>
                     }
                   />
                   
+                  {/* CORRECTED: /dashboard now correctly points to UserDashboard */}
+                  <Route path="/dashboard" element={<ProtectedRoute allowedRoles={[2]}><UserDashboard /></ProtectedRoute>} />
+
                   <Route path="/user-profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
-                  <Route path="/dashboard" element={<ProtectedRoute><Navigate to={getRedirect()} /></ProtectedRoute>} />
                   <Route path="/admin-dashboard" element={<ProtectedRoute allowedRoles={[1]}><AdminDashboard /></ProtectedRoute>} />
-                  <Route path="/user-dashboard" element={<ProtectedRoute allowedRoles={[2]}><UserDashboard /></ProtectedRoute>} />
+                  <Route path="/clients" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
+                  <Route path="/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
+                  <Route path="/invoices/new" element={<ProtectedRoute><InvoiceFormPage /></ProtectedRoute>} />
+                  <Route path="/invoices/edit/:invoiceId" element={<ProtectedRoute><InvoiceFormPage /></ProtectedRoute>} />
                   <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccessPage /></ProtectedRoute>} />
+                  
                   <Route path="*" element={<Navigate to={getRedirect()} />} />
                 </Routes>
               </Box>

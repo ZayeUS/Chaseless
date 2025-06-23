@@ -8,6 +8,10 @@ import profileRouter from './routes/profiles.js';
 import auditRouter from './routes/auditRoutes.js';
 import testEmailRoutes from './routes/testEmail.js';
 import stripeRouter from './routes/stripeRoutes.js'; 
+import clientsRouter from './routes/clients.js';
+import invoicesRouter from './routes/invoices.js';
+// NEW: Import the Stripe Connect router
+import stripeConnectRouter from './routes/stripeConnectRoutes.js';
 
 dotenv.config();
 
@@ -28,7 +32,11 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/audit", auditRouter); 
 app.use('/api/email', testEmailRoutes); 
-app.use("/api/stripe", stripeRouter);  
+app.use("/api/stripe", stripeRouter);
+app.use("/api/clients", clientsRouter);
+app.use("/api/invoices", invoicesRouter);
+// NEW: Add the Stripe Connect routes
+app.use("/api/stripe-connect", stripeConnectRouter);
 
 const PORT = process.env.PORT || 5000;
 

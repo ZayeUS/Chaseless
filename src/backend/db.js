@@ -14,4 +14,8 @@ pool.on("connect", () => {
   console.log("Connected to PostgreSQL database");
 });
 
-export const query = (text, params) => pool.query(text, params);
+// The query function remains the same
+const query = (text, params) => pool.query(text, params);
+
+// EXPORT BOTH the query function and the pool object
+export { query, pool };

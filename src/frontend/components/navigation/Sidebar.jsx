@@ -18,6 +18,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Home, 
   User, 
+  Users,
+  FileText, // Import icon for Invoices
   LogOut, 
   ChevronLeft, 
   ChevronRight, 
@@ -158,9 +160,10 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
     if (isMobile && onClose) onClose();
   };
 
-  // Simple menu items - no subscription logic
   const menuItems = [
     { label: "Dashboard", path: "/dashboard", icon: <Home size={20} strokeWidth={2} /> },
+    { label: "Invoices", path: "/invoices", icon: <FileText size={20} strokeWidth={2} /> },
+    { label: "Clients", path: "/clients", icon: <Users size={20} strokeWidth={2} /> },
     { label: "Profile", path: "/user-profile", icon: <User size={20} strokeWidth={2} /> },
   ];
 
@@ -190,7 +193,6 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
       }}
     >
       <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        {/* Header/Logo Section */}
         <Box
           sx={{
             display: "flex",
@@ -211,7 +213,7 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
               onClick={() => navigate('/')}
               sx={{ cursor: 'pointer', ml: 0.5 }}
             >
-              Cofoundless
+              ChaseLess
             </Typography>
           )}
           {!isMobile && (
@@ -229,17 +231,13 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
           )}
         </Box>
 
-        {/* Menu Items */}
         <Box flexGrow={1} sx={{ overflowY: 'auto', overflowX: 'hidden', p: isExpanded ? 1.5 : 1 }}>
           <List disablePadding>
             {menuItems.map(item => (
               <SidebarItem
                 key={item.label}
                 {...item}
-                isActive={
-                  (item.path === "/dashboard" && (pathname === "/admin-dashboard" || pathname === "/user-dashboard")) ||
-                  (item.path !== "/dashboard" && pathname.startsWith(item.path))
-                }
+                isActive={pathname.startsWith(item.path)}
                 onClick={() => handleNavigation(item.path)}
                 isExpanded={isExpanded}
               />
@@ -247,7 +245,6 @@ export const Sidebar = ({ isMobile, onClose, isDarkMode, toggleTheme }) => {
           </List>
         </Box>
 
-        {/* Footer: Theme Toggle & Logout */}
         <Box sx={{ p: isExpanded ? 2 : 1, mt: 'auto' }}>
           <ThemeToggle 
             isExpanded={isExpanded} 
